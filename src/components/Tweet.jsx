@@ -28,10 +28,11 @@ export default function Tweet({ tweet: initialTweet, onUpdate, isAuthenticated }
       const data = await commentAPI.getByTweetId(tweet.id);
       const comments = Array.isArray(data) ? data : [];
       const transformedComments = comments.map(comment => ({
-        ...comment,
-        id: comment.commentId || comment.id,
+        commentId: comment.commentId,
+        tweetId: comment.tweetId,
         userId: comment.userId,
-        userName: comment.userName || `User #${comment.userId}`
+        userName: comment.userName,
+        sentence: comment.sentence
       }));
       setTweetComments(transformedComments);
       setCommentsCount(transformedComments.length);
@@ -130,16 +131,18 @@ export default function Tweet({ tweet: initialTweet, onUpdate, isAuthenticated }
     await fetchComments();
   };
 
-  // Format the date properly considering timezone
   const getTimeAgo = () => {
     try {
+      if (!tweet.createdAt) return '';
+      
+      // Parse the date and adjust for server timezone
       const date = new Date(tweet.createdAt);
-      if (isNaN(date.getTime())) {
-        return '';
-      }
-      // Add timezone offset to match server time
-      const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
-      return formatDistanceToNow(localDate, { addSuffix: true });
+      if (isNaN(date.getTime())) return '';
+      
+      // Convert to UTC
+      const utcDate = new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
+      
+      return formatDistanceToNow(utcDate, { addSuffix: true });
     } catch (error) {
       console.error('Date parsing error:', error);
       return '';
@@ -226,10 +229,10 @@ export default function Tweet({ tweet: initialTweet, onUpdate, isAuthenticated }
             <div className="mt-4 space-y-2 border-t pt-2">
               {tweetComments.map((comment) => (
                 <Comment
-                  key={comment.id}
+                  key={comment.commentId}
                   comment={comment}
                   onUpdate={fetchComments}
-                  isOwner={isAuthenticated && comment.userId === tweet.userId}
+                  isOwner={isAuthenticated && comment.userId === JSON.parse(localStorage.getItem('user'))?.userId}
                 />
               ))}
             </div>

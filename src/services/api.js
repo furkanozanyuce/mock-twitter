@@ -65,17 +65,12 @@ export const tweets = {
     return response.data;
   },
   update: async (tweetId, sentence) => {
-    // Get the current user info
     const user = JSON.parse(localStorage.getItem('user'));
-    
-    // Send the complete tweet object
-    const response = await api.put(`/tweet/${tweetId}`, {
+    const response = await api.put(`/tweet/${tweetId}`, { 
       sentence,
       userId: user.userId,
       userName: user.userName
     });
-
-    // Return the updated tweet with user information
     return {
       ...response.data,
       userName: user.userName,
@@ -89,12 +84,35 @@ export const tweets = {
 
 export const comments = {
   create: async (tweetId, sentence) => {
-    const response = await api.post('/comment', { tweetId, sentence });
-    return response.data;
+    const user = JSON.parse(localStorage.getItem('user'));
+    const response = await api.post('/comment', { 
+      tweetId, 
+      sentence,
+      userId: user.userId,
+      userName: user.userName
+    });
+    return {
+      commentId: response.data.commentId,
+      tweetId: response.data.tweetId,
+      userId: response.data.userId,
+      userName: response.data.userName,
+      sentence: response.data.sentence
+    };
   },
   update: async (commentId, sentence) => {
-    const response = await api.put(`/comment/${commentId}`, { tweetId: null, sentence });
-    return response.data;
+    const user = JSON.parse(localStorage.getItem('user'));
+    const response = await api.put(`/comment/${commentId}`, { 
+      sentence,
+      userId: user.userId,
+      userName: user.userName
+    });
+    return {
+      commentId: response.data.commentId,
+      tweetId: response.data.tweetId,
+      userId: response.data.userId,
+      userName: response.data.userName,
+      sentence: response.data.sentence
+    };
   },
   delete: async (commentId) => {
     await api.delete(`/comment/${commentId}`);

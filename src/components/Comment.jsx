@@ -9,11 +9,12 @@ export default function Comment({ comment, onUpdate, isOwner }) {
 
   const handleEdit = async () => {
     try {
-      await comments.update(comment.id, editedSentence);
+      await comments.update(comment.commentId, editedSentence);
       setIsEditing(false);
-      onUpdate();
+      if (onUpdate) onUpdate();
       toast.success('Comment updated');
     } catch (error) {
+      console.error('Error updating comment:', error);
       toast.error('Failed to update comment');
     }
   };
@@ -21,10 +22,11 @@ export default function Comment({ comment, onUpdate, isOwner }) {
   const handleDelete = async () => {
     if (window.confirm('Are you sure you want to delete this comment?')) {
       try {
-        await comments.delete(comment.id);
-        onUpdate();
+        await comments.delete(comment.commentId);
+        if (onUpdate) onUpdate();
         toast.success('Comment deleted');
       } catch (error) {
+        console.error('Error deleting comment:', error);
         toast.error('Failed to delete comment');
       }
     }
@@ -60,7 +62,7 @@ export default function Comment({ comment, onUpdate, isOwner }) {
   return (
     <div className="flex items-start justify-between group">
       <div className="text-sm text-gray-700">
-        <span className="font-medium">{comment.userName || `User #${comment.userId}`}: </span>
+        <span className="font-medium">{comment.userName}: </span>
         {comment.sentence}
       </div>
       {isOwner && (
