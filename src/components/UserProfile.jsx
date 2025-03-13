@@ -5,37 +5,52 @@ import Tweet from './Tweet';
 
 export default function UserProfile({ user }) {
   const [userTweets, setUserTweets] = useState([]);
+  const [loading, setLoading] = useState(true);
   const isAuthenticated = !!localStorage.getItem('credentials');
 
   useEffect(() => {
     const fetchUserTweets = async () => {
       if (user?.id) {
         try {
+          setLoading(true);
           const data = await tweets.getByUserId(user.id);
-          const tweetsArray = Array.isArray(data) ? data : data.tweets || [];
+          const tweetsArray = Array.isArray(data) ? data : [];
           const transformed = tweetsArray
-            .map((t, index) => {
-              const tweetId = t.id !== undefined && t.id !== null ? t.id : (t.tweetId !== undefined && t.tweetId !== null ? t.tweetId : null);
-              return {
-                ...t,
-                id: Number(tweetId),
-                user: t.user || { 
-                  id: t.userId !== undefined ? t.userId : 'N/A', 
-                  userName: t.userName ? t.userName : (t.userId ? `User #${t.userId}` : 'Unknown User')
-                },
-              };
-            })
-            .filter((t) => t.id !== null)
+            .map(t => ({
+              ...t,
+              id: t.id || t.tweetId,
+              isOwner: true, // Since these are the user's own tweets
+              createdAt: new Date(t.createdAt).toISOString(),
+              userName: user.userName,
+              userId: user.id
+            }))
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
           setUserTweets(transformed);
         } catch (error) {
           console.error('Failed to fetch user tweets:', error);
+        } finally {
+          setLoading(false);
         }
       }
     };
 
     fetchUserTweets();
   }, [user]);
+
+  const handleTweetUpdate = async () => {
+    if (user?.id) {
+      const data = await tweets.getByUserId(user.id);
+      const transformed = data.map(t => ({
+        ...t,
+        id: t.id || t.tweetId,
+        isOwner: true,
+        createdAt: new Date(t.createdAt).toISOString(),
+        userName: user.userName,
+        userId: user.id
+      }));
+      setUserTweets(transformed);
+    }
+  };
 
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
@@ -46,14 +61,28 @@ export default function UserProfile({ user }) {
       <div className="bg-white p-6 rounded-lg shadow-md mb-6">
         <h1 className="text-2xl font-bold mb-2">{user.userName}'s Profile</h1>
         <p className="text-gray-600">{user.email}</p>
+        <p className="text-gray-500 mt-2">Total tweets: {userTweets.length}</p>
       </div>
 
       <h2 className="text-xl font-semibold mb-4">My Tweets</h2>
-      <div className="space-y-4">
-        {userTweets.map((tweet) => (
-          <Tweet key={tweet.id} tweet={tweet} onUpdate={() => tweets.getByUserId(user.id).then(setUserTweets)} isAuthenticated={isAuthenticated} />
-        ))}
-      </div>
+      {loading ? (
+        <div className="text-center text-gray-600">Loading your tweets...</div>
+      ) : userTweets.length > 0 ? (
+        <div className="space-y-4">
+          {userTweets.map((tweet) => (
+            <Tweet 
+              key={tweet.id} 
+              tweet={tweet} 
+              onUpdate={handleTweetUpdate}
+              isAuthenticated={isAuthenticated} 
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center text-gray-600 py-8">
+          You haven't posted any tweets yet.
+        </div>
+      )}
     </div>
   );
 }

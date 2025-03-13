@@ -9,9 +9,12 @@ export default function TweetForm({ onTweetCreated }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await tweets.create(sentence);
+      const newTweet = await tweets.create(sentence);
       setSentence('');
-      onTweetCreated();
+      // Pass the new tweet to parent component instead of triggering a refresh
+      if (onTweetCreated) {
+        onTweetCreated(newTweet);
+      }
       toast.success('Tweet posted!');
     } catch (error) {
       toast.error('Failed to post tweet');

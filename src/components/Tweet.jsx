@@ -4,25 +4,37 @@ import { Heart, MessageCircle, Repeat2, Trash2, Edit2 } from 'lucide-react';
 import { tweets, likes, retweets, comments as commentAPI } from '../services/api';
 import CommentForm from './CommentForm';
 import RetweetForm from './RetweetForm';
+import Comment from './Comment';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
 export default function Tweet({ tweet: initialTweet, onUpdate, isAuthenticated }) {
   const navigate = useNavigate();
   const [tweet, setTweet] = useState(initialTweet);
-  const [liked, setLiked] = useState(tweet.isLiked);
-  const [retweeted, setRetweeted] = useState(false);
-  const [retweetId, setRetweetId] = useState(null);
+  const [liked, setLiked] = useState(tweet.isLiked || false);
+  const [retweeted, setRetweeted] = useState(tweet.isRetweeted || false);
+  const [retweetId, setRetweetId] = useState(tweet.retweetId || null);
   const [showRetweetForm, setShowRetweetForm] = useState(false);
   const [showCommentForm, setShowCommentForm] = useState(false);
   const [tweetComments, setTweetComments] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editedSentence, setEditedSentence] = useState(tweet.sentence);
+  const [likesCount, setLikesCount] = useState(tweet.likesCount || 0);
+  const [retweetsCount, setRetweetsCount] = useState(tweet.retweetsCount || 0);
+  const [commentsCount, setCommentsCount] = useState(tweet.commentsCount || 0);
 
   const fetchComments = async () => {
     try {
       const data = await commentAPI.getByTweetId(tweet.id);
-      setTweetComments(Array.isArray(data) ? data : []);
+      const comments = Array.isArray(data) ? data : [];
+      const transformedComments = comments.map(comment => ({
+        ...comment,
+        id: comment.commentId || comment.id,
+        userId: comment.userId,
+        userName: comment.userName || `User #${comment.userId}`
+      }));
+      setTweetComments(transformedComments);
+      setCommentsCount(transformedComments.length);
     } catch (error) {
       console.error('Failed to fetch comments:', error);
     }
@@ -41,40 +53,35 @@ export default function Tweet({ tweet: initialTweet, onUpdate, isAuthenticated }
       if (!liked) {
         await likes.like(tweet.id);
         setLiked(true);
-        setTweet(prev => ({ ...prev, likesCount: prev.likesCount + 1 }));
+        setLikesCount(prev => prev + 1);
       } else {
         await likes.unlike(tweet.id);
         setLiked(false);
-        setTweet(prev => ({ ...prev, likesCount: prev.likesCount - 1 }));
+        setLikesCount(prev => Math.max(0, prev - 1));
       }
     } catch (error) {
       toast.error('Failed to update like');
     }
   };
 
-  const handleRetweetClick = () => {
+  const handleRetweetClick = async () => {
     if (!isAuthenticated) {
       navigate('/login');
       return;
     }
-    if (retweeted) {
-      handleUndoRetweet();
-    } else {
-      setShowRetweetForm(true);
-    }
-  };
 
-  const handleUndoRetweet = async () => {
-    try {
-      if (retweetId) {
+    if (retweeted && retweetId) {
+      try {
         await retweets.delete(retweetId);
         setRetweeted(false);
         setRetweetId(null);
-        setTweet(prev => ({ ...prev, retweetsCount: prev.retweetsCount - 1 }));
+        setRetweetsCount(prev => Math.max(0, prev - 1));
         toast.success('Retweet removed');
+      } catch (error) {
+        toast.error('Failed to remove retweet');
       }
-    } catch (error) {
-      toast.error('Failed to remove retweet');
+    } else {
+      setShowRetweetForm(true);
     }
   };
 
@@ -82,7 +89,8 @@ export default function Tweet({ tweet: initialTweet, onUpdate, isAuthenticated }
     setRetweeted(true);
     setRetweetId(data.id);
     setShowRetweetForm(false);
-    setTweet(prev => ({ ...prev, retweetsCount: prev.retweetsCount + 1 }));
+    setRetweetsCount(prev => prev + 1);
+    toast.success('Tweet retweeted!');
   };
 
   const handleEdit = async () => {
@@ -90,6 +98,7 @@ export default function Tweet({ tweet: initialTweet, onUpdate, isAuthenticated }
       await tweets.update(tweet.id, editedSentence);
       setIsEditing(false);
       setTweet(prev => ({ ...prev, sentence: editedSentence }));
+      if (onUpdate) onUpdate();
       toast.success('Tweet updated');
     } catch (error) {
       toast.error('Failed to update tweet');
@@ -100,7 +109,7 @@ export default function Tweet({ tweet: initialTweet, onUpdate, isAuthenticated }
     if (window.confirm('Are you sure you want to delete this tweet?')) {
       try {
         await tweets.delete(tweet.id);
-        onUpdate(); // Only refresh on delete since we need to remove the tweet
+        if (onUpdate) onUpdate();
         toast.success('Tweet deleted');
       } catch (error) {
         toast.error('Failed to delete tweet');
@@ -119,7 +128,6 @@ export default function Tweet({ tweet: initialTweet, onUpdate, isAuthenticated }
   const handleCommentCreated = async () => {
     setShowCommentForm(false);
     await fetchComments();
-    setTweet(prev => ({ ...prev, commentsCount: prev.commentsCount + 1 }));
   };
 
   const createdAt = tweet.createdAt ? new Date(tweet.createdAt) : null;
@@ -151,9 +159,7 @@ export default function Tweet({ tweet: initialTweet, onUpdate, isAuthenticated }
           <div className="flex justify-between items-start">
             <div>
               <p className="font-medium">{tweet.userName || `User #${tweet.userId}`}</p>
-              <p className="text-gray-500 text-sm">
-                {timeAgo}{timeAgo && ' ago'}
-              </p>
+              <p className="text-gray-500 text-sm">{timeAgo}</p>
             </div>
             {isAuthenticated && tweet.isOwner && (
               <div className="flex gap-2">
@@ -173,21 +179,21 @@ export default function Tweet({ tweet: initialTweet, onUpdate, isAuthenticated }
               className={`flex items-center gap-1 ${liked ? 'text-red-500' : 'text-gray-500'} hover:text-red-500`}
             >
               <Heart className="w-4 h-4" />
-              <span>{tweet.likesCount}</span>
+              <span>{likesCount}</span>
             </button>
             <button
               onClick={handleCommentClick}
               className="flex items-center gap-1 text-gray-500 hover:text-blue-500"
             >
               <MessageCircle className="w-4 h-4" />
-              <span>{tweet.commentsCount}</span>
+              <span>{commentsCount}</span>
             </button>
             <button
               onClick={handleRetweetClick}
               className={`flex items-center gap-1 ${retweeted ? 'text-green-500' : 'text-gray-500'} hover:text-green-500`}
             >
               <Repeat2 className="w-4 h-4" />
-              <span>{tweet.retweetsCount}</span>
+              <span>{retweetsCount}</span>
             </button>
           </div>
           {showRetweetForm && (
@@ -205,11 +211,13 @@ export default function Tweet({ tweet: initialTweet, onUpdate, isAuthenticated }
           )}
           {tweetComments.length > 0 && (
             <div className="mt-4 space-y-2 border-t pt-2">
-              {tweetComments.map((c) => (
-                <div key={c.commentId} className="text-sm text-gray-700">
-                  <span className="font-medium">{c.userName || `User #${c.userId}`}: </span>
-                  {c.sentence}
-                </div>
+              {tweetComments.map((comment) => (
+                <Comment
+                  key={comment.id}
+                  comment={comment}
+                  onUpdate={fetchComments}
+                  isOwner={isAuthenticated && comment.userId === tweet.userId}
+                />
               ))}
             </div>
           )}

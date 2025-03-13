@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = '****';
+const API_BASE_URL = 'http://localhost:9000/twitter';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -24,7 +24,14 @@ export const auth = {
     const credentials = btoa(`${email}:${password}`);
     localStorage.setItem('credentials', credentials);
     const response = await api.post('/auth/login', { email, password });
-    return { ...response.data, email, userName: response.data.userName || email.split('@')[0] };
+    const userData = { 
+      ...response.data, 
+      email, 
+      userName: response.data.userName || email.split('@')[0],
+      id: response.data.id
+    };
+    localStorage.setItem('user', JSON.stringify(userData));
+    return userData;
   },
   logout: () => {
     localStorage.removeItem('credentials');
@@ -66,14 +73,13 @@ export const comments = {
     const response = await api.post('/comment', { tweetId, sentence });
     return response.data;
   },
-  update: async (commentId, tweetId, sentence) => {
-    const response = await api.put(`/comment/${commentId}`, { tweetId, sentence });
+  update: async (commentId, sentence) => {
+    const response = await api.put(`/comment/${commentId}`, { tweetId: null, sentence });
     return response.data;
   },
   delete: async (commentId) => {
     await api.delete(`/comment/${commentId}`);
   },
-  // New endpoint to fetch comments by tweetId:
   getByTweetId: async (tweetId) => {
     const response = await api.get(`/comment/byTweet?tweetId=${tweetId}`);
     return response.data;
@@ -94,9 +100,16 @@ export const likes = {
 export const retweets = {
   create: async (tweetId, message) => {
     const response = await api.post('/retweet', { tweetId, message });
-    return response.data;
+    return {
+      id: response.data.retweetId,
+      tweetId: response.data.tweetId,
+      message: response.data.message
+    };
   },
   delete: async (retweetId) => {
+    if (!retweetId) {
+      throw new Error('Retweet ID is required');
+    }
     await api.delete(`/retweet/${retweetId}`);
   },
 };
