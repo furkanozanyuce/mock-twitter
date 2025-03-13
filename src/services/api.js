@@ -24,11 +24,10 @@ export const auth = {
     const credentials = btoa(`${email}:${password}`);
     localStorage.setItem('credentials', credentials);
     const response = await api.post('/auth/login', { email, password });
-    const userData = { 
-      ...response.data, 
-      email, 
-      userName: response.data.userName || email.split('@')[0],
-      id: response.data.id
+    const userData = {
+      userId: response.data.userId,
+      email: response.data.email,
+      userName: response.data.userName,
     };
     localStorage.setItem('user', JSON.stringify(userData));
     return userData;
@@ -42,7 +41,13 @@ export const auth = {
 export const tweets = {
   create: async (sentence) => {
     const response = await api.post('/tweet', { sentence });
-    return response.data;
+    const user = JSON.parse(localStorage.getItem('user'));
+    return {
+      ...response.data,
+      userName: user.userName,
+      userId: user.userId,
+      createdAt: new Date().toISOString()
+    };
   },
   getAll: async () => {
     const response = await api.get('/tweet');
@@ -60,8 +65,22 @@ export const tweets = {
     return response.data;
   },
   update: async (tweetId, sentence) => {
-    const response = await api.put(`/tweet/${tweetId}`, { sentence });
-    return response.data;
+    // Get the current user info
+    const user = JSON.parse(localStorage.getItem('user'));
+    
+    // Send the complete tweet object
+    const response = await api.put(`/tweet/${tweetId}`, {
+      sentence,
+      userId: user.userId,
+      userName: user.userName
+    });
+
+    // Return the updated tweet with user information
+    return {
+      ...response.data,
+      userName: user.userName,
+      userId: user.userId
+    };
   },
   delete: async (tweetId) => {
     await api.delete(`/tweet/${tweetId}`);

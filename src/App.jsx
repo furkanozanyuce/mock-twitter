@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { Twitter, LogOut, User } from 'lucide-react';
 import AuthForm from './components/AuthForm';
@@ -65,9 +65,30 @@ function App() {
 
         <Routes>
           <Route path="/" element={<TweetFeed />} />
-          <Route path="/login" element={<AuthForm type="login" setUser={setUser} />} />
-          <Route path="/register" element={<AuthForm type="register" />} />
-          <Route path="/profile" element={<UserProfile user={user} />} />
+          <Route 
+            path="/login" 
+            element={
+              isAuthenticated ? 
+                <Navigate to="/profile" replace /> : 
+                <AuthForm type="login" setUser={setUser} />
+            } 
+          />
+          <Route 
+            path="/register" 
+            element={
+              isAuthenticated ? 
+                <Navigate to="/profile" replace /> : 
+                <AuthForm type="register" />
+            } 
+          />
+          <Route 
+            path="/profile" 
+            element={
+              isAuthenticated ? 
+                <UserProfile /> : 
+                <Navigate to="/login" replace />
+            } 
+          />
         </Routes>
         <Toaster position="top-right" />
       </div>

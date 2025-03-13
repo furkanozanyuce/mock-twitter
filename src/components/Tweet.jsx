@@ -130,10 +130,23 @@ export default function Tweet({ tweet: initialTweet, onUpdate, isAuthenticated }
     await fetchComments();
   };
 
-  const createdAt = tweet.createdAt ? new Date(tweet.createdAt) : null;
-  const timeAgo = createdAt && !isNaN(createdAt.getTime())
-    ? formatDistanceToNow(createdAt, { addSuffix: true })
-    : '';
+  // Format the date properly considering timezone
+  const getTimeAgo = () => {
+    try {
+      const date = new Date(tweet.createdAt);
+      if (isNaN(date.getTime())) {
+        return '';
+      }
+      // Add timezone offset to match server time
+      const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+      return formatDistanceToNow(localDate, { addSuffix: true });
+    } catch (error) {
+      console.error('Date parsing error:', error);
+      return '';
+    }
+  };
+
+  const timeAgo = getTimeAgo();
 
   return (
     <div className="bg-white p-4 rounded-lg shadow mb-4">
@@ -158,7 +171,7 @@ export default function Tweet({ tweet: initialTweet, onUpdate, isAuthenticated }
         <>
           <div className="flex justify-between items-start">
             <div>
-              <p className="font-medium">{tweet.userName || `User #${tweet.userId}`}</p>
+              <p className="font-medium">{tweet.userName}</p>
               <p className="text-gray-500 text-sm">{timeAgo}</p>
             </div>
             {isAuthenticated && tweet.isOwner && (

@@ -3,52 +3,69 @@ import { Navigate } from 'react-router-dom';
 import { tweets } from '../services/api';
 import Tweet from './Tweet';
 
-export default function UserProfile({ user }) {
+export default function UserProfile() {
   const [userTweets, setUserTweets] = useState([]);
   const [loading, setLoading] = useState(true);
   const isAuthenticated = !!localStorage.getItem('credentials');
+  const user = JSON.parse(localStorage.getItem('user'));
 
   useEffect(() => {
+    let mounted = true;
+
     const fetchUserTweets = async () => {
-      if (user?.id) {
+      if (user?.userId) {
         try {
-          setLoading(true);
-          const data = await tweets.getByUserId(user.id);
+          const data = await tweets.getByUserId(user.userId);
+          if (!mounted) return;
+
           const tweetsArray = Array.isArray(data) ? data : [];
           const transformed = tweetsArray
             .map(t => ({
               ...t,
               id: t.id || t.tweetId,
               isOwner: true, // Since these are the user's own tweets
-              createdAt: new Date(t.createdAt).toISOString(),
+              createdAt: t.createdAt,
               userName: user.userName,
-              userId: user.id
+              userId: user.userId
             }))
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
           setUserTweets(transformed);
         } catch (error) {
           console.error('Failed to fetch user tweets:', error);
         } finally {
-          setLoading(false);
+          if (mounted) {
+            setLoading(false);
+          }
         }
       }
     };
 
     fetchUserTweets();
+
+    return () => {
+      mounted = false;
+    };
   }, [user]);
 
   const handleTweetUpdate = async () => {
-    if (user?.id) {
-      const data = await tweets.getByUserId(user.id);
-      const transformed = data.map(t => ({
-        ...t,
-        id: t.id || t.tweetId,
-        isOwner: true,
-        createdAt: new Date(t.createdAt).toISOString(),
-        userName: user.userName,
-        userId: user.id
-      }));
-      setUserTweets(transformed);
+    if (user?.userId) {
+      setLoading(true);
+      try {
+        const data = await tweets.getByUserId(user.userId);
+        const transformed = data.map(t => ({
+          ...t,
+          id: t.id || t.tweetId,
+          isOwner: true,
+          createdAt: t.createdAt,
+          userName: user.userName,
+          userId: user.userId
+        }));
+        setUserTweets(transformed);
+      } catch (error) {
+        console.error('Failed to update tweets:', error);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
